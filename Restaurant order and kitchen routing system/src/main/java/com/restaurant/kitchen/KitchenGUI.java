@@ -1,7 +1,6 @@
 package com.restaurant.kitchen;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,19 +11,27 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
+import javafx.scene.text.Font;
 
 public class KitchenGUI {
 
     private static final List<KitchenOrder> pendingOrders = new ArrayList<>();
+    private static final String REGULAR_FONT = loadFont(
+            "/fonts/StardosStencil-Regular.ttf", "Stardos Stencil");
+    private static final String BOLD_FONT = loadFont(
+            "/fonts/StardosStencil-Bold.ttf", REGULAR_FONT);
 
     private final Runnable onBackToMainMenu;
-    private final Map<KitchenSection, VBox> sectionLists =
-            new EnumMap<>(KitchenSection.class);
+    private final VBox stationOrders = new VBox(15);
+    private final Label queueLabel = new Label();
+    private final Label stationTitle = new Label();
+    private KitchenSection selectedSection = KitchenSection.GRILL;
 
     public KitchenGUI(Runnable onBackToMainMenu) {
         this.onBackToMainMenu = onBackToMainMenu;
@@ -36,115 +43,196 @@ public class KitchenGUI {
     }
 
     public Scene createScene() {
-        Label title = new Label("Kitchen Display");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        Label title = new Label("RESTAURANT ORDER & KITCHEN ROUTING SYSTEM");
+        title.setStyle(font(BOLD_FONT, 21));
+        title.setWrapText(true);
+
+        Label subtitle = new Label("KITCHEN SYSTEM");
+        subtitle.setStyle(font(REGULAR_FONT, 16));
+
+        VBox titleBlock = new VBox(3, title, subtitle);
 
         Button backButton = new Button("Back to Main Menu");
         backButton.setOnAction(event -> onBackToMainMenu.run());
+        styleButton(backButton, false);
 
         Button refreshButton = new Button("Refresh Orders");
         refreshButton.setOnAction(event -> refreshOrders());
+        styleButton(refreshButton, false);
 
-        HBox header = new HBox(15, title, backButton, refreshButton);
+        HBox header = new HBox(15, titleBlock, backButton, refreshButton);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(20));
+        HBox.setHgrow(titleBlock, javafx.scene.layout.Priority.ALWAYS);
 
-        HBox sections = new HBox(12);
-        sections.setPadding(new Insets(0, 20, 20, 20));
-        sections.setAlignment(Pos.TOP_LEFT);
-
+        FlowPane stationTabs = new FlowPane(28, 10);
+        stationTabs.setAlignment(Pos.CENTER);
+        stationTabs.setPadding(new Insets(12, 20, 12, 20));
         for (KitchenSection section : KitchenSection.values()) {
-            VBox list = new VBox(10);
-            list.setPadding(new Insets(10));
-            list.setStyle("-fx-border-color: #b8b8b8; -fx-border-radius: 4;");
-            sectionLists.put(section, list);
-
-            VBox sectionColumn = new VBox(8, new Label(section.displayName), list);
-            VBox.setVgrow(list, Priority.ALWAYS);
-            sectionColumn.setPrefWidth(220);
-            sections.getChildren().add(sectionColumn);
+            Button stationButton = new Button(section.displayName);
+            stationButton.setPrefWidth(145);
+            stationButton.setOnAction(event -> {
+                selectedSection = section;
+                stationTitle.setText(selectedSection.displayName + " STATION");
+                updateStationTabs(stationTabs);
+                refreshOrders();
+            });
+            stationTabs.getChildren().add(stationButton);
         }
 
-        ScrollPane scrollPane = new ScrollPane(sections);
+        updateStationTabs(stationTabs);
+        stationTitle.setText(selectedSection.displayName + " STATION");
+
+        stationTitle.setStyle(font(BOLD_FONT, 18));
+        queueLabel.setStyle(font(REGULAR_FONT, 16));
+        stationOrders.setPadding(new Insets(10, 20, 20, 20));
+
+        VBox stationContent = new VBox(12, stationTitle,
+                new Label("Assigned Kitchen Queue"), queueLabel,
+                new Separator(), stationOrders);
+        stationContent.setPadding(new Insets(15, 35, 10, 35));
+        stationContent.setStyle("-fx-background-color: white;");
+        VBox.setVgrow(stationOrders, Priority.ALWAYS);
+
+        ScrollPane scrollPane = new ScrollPane(stationContent);
         scrollPane.setFitToHeight(true);
         scrollPane.setFitToWidth(true);
 
         BorderPane root = new BorderPane();
-        root.setTop(header);
+        root.setTop(new VBox(header, stationTabs));
         root.setCenter(scrollPane);
         refreshOrders();
-        return new Scene(root, 1150, 650);
+        Scene scene = new Scene(root, 1050, 700);
+        scene.getRoot().setStyle("-fx-font-family: '" + REGULAR_FONT + "';");
+        return scene;
     }
 
     private void refreshOrders() {
-        sectionLists.values().forEach(list -> list.getChildren().clear());
+        stationOrders.getChildren().clear();
 
         synchronized (KitchenGUI.class) {
-            if (pendingOrders.isEmpty()) {
-                sectionLists.values().forEach(list ->
-                        list.getChildren().add(new Label("No pending orders")));
+            long activeOrders = pendingOrders.stream()
+                    .filter(order -> order.status != OrderStatus.READY).count();
+            queueLabel.setText("Queue: " + activeOrders + " Active Orders");
+
+            boolean hasOrders = false;
+            for (KitchenOrder order : pendingOrders) {
+                if (order.hasProductsFor(selectedSection)) {
+                    addOrderCard(order);
+                    hasOrders = true;
+                }
+            }
+            if (!hasOrders) {
+                Label emptyLabel = new Label("No orders assigned to this station");
+                emptyLabel.setStyle(font(REGULAR_FONT, 16));
+                stationOrders.getChildren().add(emptyLabel);
                 return;
             }
-
-            for (KitchenOrder order : pendingOrders) {
-                addOrderToSections(order);
-            }
         }
     }
 
-    private void addOrderToSections(KitchenOrder order) {
-        Map<KitchenSection, List<String>> routedProducts =
-                new EnumMap<>(KitchenSection.class);
+    private void addOrderCard(KitchenOrder order) {
+        VBox ticket = new VBox(8);
+        ticket.setPadding(new Insets(12, 15, 12, 15));
+        ticket.setMaxWidth(Double.MAX_VALUE);
+        ticket.setStyle("-fx-border-color: #222; -fx-border-width: 1;"
+                + " -fx-background-color: white;");
+
+        HBox orderHeading = new HBox();
+        Label orderNumber = new Label("Order #" + order.orderNumber);
+        orderNumber.setStyle(font(BOLD_FONT, 16));
+        Label status = new Label("Status: " + order.status.displayName);
+        status.setStyle(font(REGULAR_FONT, 15));
+        orderHeading.getChildren().addAll(orderNumber, status);
+        status.setMaxWidth(Double.MAX_VALUE);
+        status.setAlignment(Pos.CENTER_RIGHT);
+        ticket.getChildren().add(orderHeading);
+
         for (Map.Entry<String, Integer> product : order.products.entrySet()) {
-            KitchenSection section = KitchenSection.forProduct(product.getKey());
-            routedProducts.computeIfAbsent(section, ignored -> new ArrayList<>())
-                    .add(product.getKey() + " x" + product.getValue());
+            if (KitchenSection.forProduct(product.getKey()) == selectedSection) {
+                Label productLabel = new Label(product.getKey() + " x" + product.getValue());
+                productLabel.setStyle(font(REGULAR_FONT, 16));
+                ticket.getChildren().add(productLabel);
+            }
         }
 
-        boolean completionButtonAdded = false;
-        for (KitchenSection section : KitchenSection.values()) {
-            List<String> products = routedProducts.get(section);
-            if (products == null) {
-                continue;
-            }
-
-            VBox ticket = new VBox(6);
-            ticket.setPadding(new Insets(8));
-            ticket.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #888;");
-            ticket.getChildren().add(new Label("Order #" + order.orderNumber));
-            products.forEach(product -> ticket.getChildren().add(new Label(product)));
-
-            if (!completionButtonAdded) {
-                Button completeButton = new Button("Complete Order");
-                completeButton.setOnAction(event -> completeOrder(order));
-                ticket.getChildren().add(completeButton);
-                completionButtonAdded = true;
-            }
-            sectionLists.get(section).getChildren().add(ticket);
-        }
+        HBox actions = new HBox(15);
+        actions.setAlignment(Pos.CENTER_LEFT);
+        Button startButton = new Button("START PREPARING");
+        startButton.setDisable(order.status != OrderStatus.PENDING);
+        startButton.setOnAction(event -> updateStatus(order, OrderStatus.PREPARING));
+        Button readyButton = new Button("MARK READY");
+        readyButton.setDisable(order.status != OrderStatus.PREPARING);
+        readyButton.setOnAction(event -> updateStatus(order, OrderStatus.READY));
+        styleButton(startButton, false);
+        styleButton(readyButton, false);
+        actions.getChildren().addAll(startButton, readyButton);
+        ticket.getChildren().add(actions);
+        stationOrders.getChildren().add(ticket);
     }
 
-    private void completeOrder(KitchenOrder order) {
+    private void updateStatus(KitchenOrder order, OrderStatus status) {
         synchronized (KitchenGUI.class) {
-            pendingOrders.remove(order);
+            order.status = status;
         }
         refreshOrders();
+    }
+
+    private void updateStationTabs(FlowPane tabs) {
+        for (javafx.scene.Node node : tabs.getChildren()) {
+            Button button = (Button) node;
+            boolean selected = button.getText().equals(selectedSection.displayName);
+            styleButton(button, selected);
+        }
+    }
+
+    private static void styleButton(Button button, boolean selected) {
+        button.setStyle("-fx-font-family: '" + BOLD_FONT + "';"
+                + " -fx-font-size: 15px; -fx-font-weight: bold;"
+                + (selected ? " -fx-background-color: #d0d0d0;" : ""));
+    }
+
+    private static String font(String family, int size) {
+        return "-fx-font-family: '" + family + "'; -fx-font-size: " + size + "px;";
+    }
+
+    private static String loadFont(String resource, String fallback) {
+        Font font = Font.loadFont(KitchenGUI.class.getResourceAsStream(resource), 16);
+        return font == null ? fallback : font.getName();
     }
 
     private static final class KitchenOrder {
         private final int orderNumber;
         private final Map<String, Integer> products;
+        private OrderStatus status = OrderStatus.PENDING;
 
         private KitchenOrder(int orderNumber, Map<String, Integer> products) {
             this.orderNumber = orderNumber;
             this.products = new LinkedHashMap<>(products);
+        }
+
+        private boolean hasProductsFor(KitchenSection section) {
+            return products.keySet().stream()
+                    .anyMatch(product -> KitchenSection.forProduct(product) == section);
+        }
+    }
+
+    private enum OrderStatus {
+        PENDING("PENDING"),
+        PREPARING("PREPARING"),
+        READY("READY");
+
+        private final String displayName;
+
+        OrderStatus(String displayName) {
+            this.displayName = displayName;
         }
     }
 
     private enum KitchenSection {
         GRILL("GRILL"),
         FRY("FRY"),
-        DRINKS("DRINKS"),
+        DRINKS("BEVERAGE"),
         DESSERT("DESSERT"),
         OTHER("OTHER");
 

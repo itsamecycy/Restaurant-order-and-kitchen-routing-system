@@ -12,9 +12,15 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 public class Main extends Application {
+
+    private static final String REGULAR_FONT = loadFont(
+        "/fonts/StardosStencil-Regular.ttf", "Stardos Stencil");
+    private static final String BOLD_FONT = loadFont(
+        "/fonts/StardosStencil-Bold.ttf", REGULAR_FONT);
 
     @Override
     public void start(Stage stage) {
@@ -29,13 +35,15 @@ public class Main extends Application {
 
     private Scene createMainMenu(Stage stage) {
         Label title = new Label("Restaurant System");
-        title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold;");
+        title.setStyle(font(BOLD_FONT, 28));
+        title.setWrapText(true);
 
         Label subtitle = new Label("Select a workspace");
-        subtitle.setStyle("-fx-font-size: 15px;");
+        subtitle.setStyle(font(REGULAR_FONT, 15));
 
         Button counterButton = new Button("Counter");
         counterButton.setPrefSize(240, 55);
+        styleButton(counterButton);
         counterButton.setOnAction(event -> {
             CounterGUI counterGUI = new CounterGUI(
                     () -> stage.setScene(createMainMenu(stage)));
@@ -44,6 +52,7 @@ public class Main extends Application {
 
         Button kitchenButton = new Button("Kitchen");
         kitchenButton.setPrefSize(240, 55);
+        styleButton(kitchenButton);
         kitchenButton.setOnAction(event -> {
             KitchenGUI kitchenGUI = new KitchenGUI(
                 () -> stage.setScene(createMainMenu(stage)));
@@ -52,6 +61,7 @@ public class Main extends Application {
 
         Button adminButton = new Button("Admin");
         adminButton.setPrefSize(240, 55);
+        styleButton(adminButton);
         adminButton.setOnAction(event -> showUnavailableMessage(
                 "Admin", "Admin login will be added when the admin workspace is implemented."));
 
@@ -59,8 +69,13 @@ public class Main extends Application {
                 kitchenButton, adminButton);
         menu.setAlignment(Pos.CENTER);
         menu.setPadding(new Insets(30));
+        menu.setStyle("-fx-font-family: '" + REGULAR_FONT + "';");
 
-        return new Scene(menu, 500, 500);
+        Scene scene = new Scene(menu, 500, 500);
+        counterButton.prefWidthProperty().bind(menu.widthProperty().multiply(0.65));
+        kitchenButton.prefWidthProperty().bind(menu.widthProperty().multiply(0.65));
+        adminButton.prefWidthProperty().bind(menu.widthProperty().multiply(0.65));
+        return scene;
     }
 
     private void showUnavailableMessage(String workspace, String message) {
@@ -69,6 +84,19 @@ public class Main extends Application {
         alert.setHeaderText(workspace + " workspace");
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    private static void styleButton(Button button) {
+        button.setStyle(font(BOLD_FONT, 16));
+    }
+
+    private static String font(String family, int size) {
+        return "-fx-font-family: '" + family + "'; -fx-font-size: " + size + "px;";
+    }
+
+    private static String loadFont(String resource, String fallback) {
+        Font font = Font.loadFont(Main.class.getResourceAsStream(resource), 16);
+        return font == null ? fallback : font.getName();
     }
 
     public static void main(String[] args) {

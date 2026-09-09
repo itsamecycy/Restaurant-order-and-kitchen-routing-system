@@ -15,19 +15,24 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
-import javafx.scene.control.Spinner;
-import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextArea;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 public class CounterGUI {
 
+    private static final String REGULAR_FONT = loadFont(
+        "/fonts/StardosStencil-Regular.ttf", "Stardos Stencil");
+    private static final String BOLD_FONT = loadFont(
+        "/fonts/StardosStencil-Bold.ttf", REGULAR_FONT);
     private static final AtomicInteger NEXT_ORDER_NUMBER =
             new AtomicInteger(1001);
     private static final DateTimeFormatter RECEIPT_TIME_FORMAT =
@@ -37,7 +42,6 @@ public class CounterGUI {
     private final Map<String, Integer> selectedProducts = new LinkedHashMap<>();
     private final ListView<String> orderList = new ListView<>();
     private final Label totalLabel = new Label("Total: $0.00");
-    private final Spinner<Integer> quantitySpinner = new Spinner<>(1, 99, 1);
     private final Runnable onBackToMainMenu;
 
     public CounterGUI() {
@@ -57,78 +61,79 @@ public class CounterGUI {
     }
 
     public Scene createScene(Stage stage) {
-        Label title = new Label("Counter - Create Order");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        Label title = new Label("RESTAURANT ORDER & KITCHEN ROUTING SYSTEM");
+        title.setStyle(font(BOLD_FONT, 21));
+
+        Label subtitle = new Label("COUNTER SYSTEM");
+        subtitle.setStyle(font(REGULAR_FONT, 16));
+
+        Label staff = new Label("Order Staff");
+        staff.setStyle(font(REGULAR_FONT, 16));
 
         Button backButton = new Button("Back to Main Menu");
         backButton.setOnAction(event -> onBackToMainMenu.run());
+        styleButton(backButton);
 
-        HBox header = new HBox(15, title, backButton);
+        VBox titleBlock = new VBox(3, title, subtitle);
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+        HBox header = new HBox(15, titleBlock, headerSpacer, staff, backButton);
         header.setAlignment(Pos.CENTER_LEFT);
+        header.setPadding(new Insets(20, 35, 15, 35));
 
-        GridPane menuGrid = new GridPane();
-        menuGrid.setHgap(10);
-        menuGrid.setVgap(10);
-
-        int column = 0;
-        int row = 0;
+        Label menuTitle = new Label("Menu");
+        menuTitle.setStyle(font(BOLD_FONT, 18));
+        VBox menuItems = new VBox(14);
         for (Map.Entry<String, Double> entry : menu.entrySet()) {
-            Button productButton = new Button(
-                    entry.getKey() + "\n$" + String.format("%.2f", entry.getValue()));
-            productButton.setPrefSize(150, 60);
-            productButton.setOnAction(event -> addProduct(entry.getKey()));
-            menuGrid.add(productButton, column, row);
-
-            column++;
-            if (column == 2) {
-                column = 0;
-                row++;
-            }
+            menuItems.getChildren().add(createMenuItem(entry.getKey(), entry.getValue()));
         }
+        ScrollPane menuScroll = new ScrollPane(menuItems);
+        menuScroll.setFitToWidth(true);
+        menuScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        menuScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        VBox.setVgrow(menuScroll, Priority.ALWAYS);
+
+        VBox menuSection = new VBox(14, menuTitle, menuScroll);
+        menuSection.setPadding(new Insets(10, 25, 20, 30));
+        menuSection.setMinWidth(230);
+        menuSection.setMaxWidth(Double.MAX_VALUE);
+        menuSection.setFillWidth(true);
 
         orderList.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
-        orderList.setPrefHeight(260);
+        orderList.setMinHeight(140);
+        orderList.setMaxHeight(Double.MAX_VALUE);
         orderList.setPlaceholder(new Label("No items added yet"));
 
-        quantitySpinner.setValueFactory(
-                new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 99, 1));
-        quantitySpinner.setPrefWidth(90);
-
-        Button removeButton = new Button("Remove Selected");
+        Button removeButton = new Button("Remove Item");
         removeButton.setOnAction(event -> removeSelectedProduct());
+        styleButton(removeButton);
 
         Button clearButton = new Button("Clear Order");
         clearButton.setOnAction(event -> clearOrder());
+        styleButton(clearButton);
 
-        Button createOrderButton = new Button("Create Order");
+        Button createOrderButton = new Button("Confirm Order");
         createOrderButton.setDefaultButton(true);
         createOrderButton.setOnAction(event -> createReceipt(stage));
+        styleButton(createOrderButton);
 
-        HBox orderActions = new HBox(
-                10,
-                new Label("Quantity:"),
-                quantitySpinner,
-                removeButton,
-                clearButton,
-                createOrderButton
-        );
-        orderActions.setAlignment(Pos.CENTER_LEFT);
-
-        VBox menuSection = new VBox(12, new Label("MENU"), menuGrid);
-        VBox orderSection = new VBox(12, new Label("CURRENT ORDER"), orderList,
-                totalLabel, orderActions);
-        menuSection.setPadding(new Insets(10));
-        orderSection.setPadding(new Insets(10));
+        VBox orderActions = new VBox(12, removeButton, clearButton, createOrderButton);
+        VBox orderSection = new VBox(14, new Label("Current Order"), orderList,
+            totalLabel, orderActions);
+        ((Label) orderSection.getChildren().get(0)).setStyle(font(BOLD_FONT, 18));
+        totalLabel.setStyle(font(BOLD_FONT, 16));
+        orderSection.setPadding(new Insets(10, 30, 20, 25));
+        VBox.setVgrow(orderList, Priority.ALWAYS);
 
         BorderPane content = new BorderPane();
         content.setTop(header);
         content.setLeft(menuSection);
         content.setCenter(orderSection);
-        BorderPane.setMargin(header, new Insets(20, 20, 0, 20));
 
         BorderPane root = new BorderPane(content);
-        root.setPadding(new Insets(10));
-        Scene scene = new Scene(root, 900, 520);
+        root.setStyle("-fx-font-family: '" + REGULAR_FONT + "';");
+        Scene scene = new Scene(root, 950, 760);
+        menuSection.prefWidthProperty().bind(root.widthProperty().multiply(0.46));
         scene.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
             if (event.isAltDown() && event.isShiftDown()) {
                 onBackToMainMenu.run();
@@ -138,11 +143,28 @@ public class CounterGUI {
         return scene;
     }
 
+    private HBox createMenuItem(String product, double price) {
+        Label productLabel = new Label(product);
+        productLabel.setStyle(font(REGULAR_FONT, 17));
+        Label priceLabel = new Label(String.format("$%.2f", price));
+        priceLabel.setStyle(font(REGULAR_FONT, 17));
+        Button addButton = new Button("ADD");
+        addButton.setOnAction(event -> addProduct(product));
+        styleButton(addButton);
+
+        VBox productDetails = new VBox(6, productLabel, addButton);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox item = new HBox(10, productDetails, spacer, priceLabel);
+        item.setMaxWidth(Double.MAX_VALUE);
+        item.setPadding(new Insets(10, 15, 9, 15));
+        item.setStyle("-fx-border-color: #777; -fx-border-width: 1;"
+                + " -fx-background-color: white;");
+        return item;
+    }
+
     private void addProduct(String product) {
-        int quantity = quantitySpinner.getValue();
-        selectedProducts.put(product,
-                selectedProducts.getOrDefault(product, 0) + quantity);
-        quantitySpinner.getValueFactory().setValue(1);
+        selectedProducts.put(product, selectedProducts.getOrDefault(product, 0) + 1);
         refreshOrder();
     }
 
@@ -174,6 +196,20 @@ public class CounterGUI {
         }
 
         totalLabel.setText(String.format("Total: $%.2f", total));
+    }
+
+    private static void styleButton(Button button) {
+        button.setStyle("-fx-font-family: '" + BOLD_FONT + "';"
+                + " -fx-font-size: 14px;");
+    }
+
+    private static String font(String family, int size) {
+        return "-fx-font-family: '" + family + "'; -fx-font-size: " + size + "px;";
+    }
+
+    private static String loadFont(String resource, String fallback) {
+        Font font = Font.loadFont(CounterGUI.class.getResourceAsStream(resource), 16);
+        return font == null ? fallback : font.getName();
     }
 
     private void createReceipt(Stage owner) {
