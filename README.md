@@ -555,7 +555,7 @@ Developed by:
 * [Mariano, Sarah]
 * [Reyes, Angela]
 * [Viñas, Tisha Lyan]
-* []
+* [Tud, Jhon Paul]
 
 **Course:** [BS Computer Engr.]
 **Year Level:** 3rd Year
