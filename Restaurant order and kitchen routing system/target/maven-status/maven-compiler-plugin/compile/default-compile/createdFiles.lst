@@ -1,1 +1,5 @@
-main\java\com\restaurant\Main.class
+com\restaurant\counter\CounterGUI.class
+com\restaurant\kitchen\KitchenGUI.class
+com\restaurant\kitchen\KitchenGUI$KitchenOrder.class
+com\restaurant\kitchen\KitchenGUI$KitchenSection.class
+com\restaurant\Main.class
