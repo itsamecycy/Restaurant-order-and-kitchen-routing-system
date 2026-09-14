@@ -22,6 +22,7 @@ import javafx.scene.text.Font;
 public class KitchenGUI {
 
     private static final List<KitchenOrder> pendingOrders = new ArrayList<>();
+    private static final List<KitchenOrder> completedOrders = new ArrayList<>();
     private static final String REGULAR_FONT = loadFont(
             "/fonts/StardosStencil-Regular.ttf", "Stardos Stencil");
     private static final String BOLD_FONT = loadFont(
@@ -32,6 +33,7 @@ public class KitchenGUI {
     private final Label queueLabel = new Label();
     private final Label stationTitle = new Label();
     private KitchenSection selectedSection = KitchenSection.GRILL;
+    private boolean showingOrderLog;
 
     public KitchenGUI(Runnable onBackToMainMenu) {
         this.onBackToMainMenu = onBackToMainMenu;
@@ -60,7 +62,15 @@ public class KitchenGUI {
         refreshButton.setOnAction(event -> refreshOrders());
         styleButton(refreshButton, false);
 
-        HBox header = new HBox(15, titleBlock, backButton, refreshButton);
+        Button orderLogButton = new Button("Order Log");
+        orderLogButton.setOnAction(event -> {
+            showingOrderLog = !showingOrderLog;
+            orderLogButton.setText(showingOrderLog ? "Active Orders" : "Order Log");
+            refreshOrders();
+        });
+        styleButton(orderLogButton, false);
+
+        HBox header = new HBox(15, titleBlock, backButton, refreshButton, orderLogButton);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(20));
         HBox.setHgrow(titleBlock, javafx.scene.layout.Priority.ALWAYS);
@@ -111,19 +121,28 @@ public class KitchenGUI {
         stationOrders.getChildren().clear();
 
         synchronized (KitchenGUI.class) {
-            long activeOrders = pendingOrders.stream()
-                    .filter(order -> order.status != OrderStatus.READY).count();
-            queueLabel.setText("Queue: " + activeOrders + " Active Orders");
+            if (showingOrderLog) {
+                stationTitle.setText(selectedSection.displayName + " ORDER LOG");
+                queueLabel.setText("Completed Orders: " + completedOrders.size());
+            } else {
+                stationTitle.setText(selectedSection.displayName + " STATION");
+                queueLabel.setText("Queue: " + pendingOrders.size() + " Active Orders");
+            }
 
             boolean hasOrders = false;
-            for (KitchenOrder order : pendingOrders) {
+            List<KitchenOrder> ordersToDisplay = showingOrderLog
+                    ? completedOrders : pendingOrders;
+            for (KitchenOrder order : ordersToDisplay) {
                 if (order.hasProductsFor(selectedSection)) {
-                    addOrderCard(order);
+                    addOrderCard(order, showingOrderLog);
                     hasOrders = true;
                 }
             }
             if (!hasOrders) {
-                Label emptyLabel = new Label("No orders assigned to this station");
+                String emptyMessage = showingOrderLog
+                        ? "No completed orders for this station"
+                        : "No orders assigned to this station";
+                Label emptyLabel = new Label(emptyMessage);
                 emptyLabel.setStyle(font(REGULAR_FONT, 16));
                 stationOrders.getChildren().add(emptyLabel);
                 return;
@@ -131,7 +150,7 @@ public class KitchenGUI {
         }
     }
 
-    private void addOrderCard(KitchenOrder order) {
+    private void addOrderCard(KitchenOrder order, boolean historyCard) {
         VBox ticket = new VBox(8);
         ticket.setPadding(new Insets(12, 15, 12, 15));
         ticket.setMaxWidth(Double.MAX_VALUE);
@@ -156,24 +175,30 @@ public class KitchenGUI {
             }
         }
 
-        HBox actions = new HBox(15);
-        actions.setAlignment(Pos.CENTER_LEFT);
-        Button startButton = new Button("START PREPARING");
-        startButton.setDisable(order.status != OrderStatus.PENDING);
-        startButton.setOnAction(event -> updateStatus(order, OrderStatus.PREPARING));
-        Button readyButton = new Button("MARK READY");
-        readyButton.setDisable(order.status != OrderStatus.PREPARING);
-        readyButton.setOnAction(event -> updateStatus(order, OrderStatus.READY));
-        styleButton(startButton, false);
-        styleButton(readyButton, false);
-        actions.getChildren().addAll(startButton, readyButton);
-        ticket.getChildren().add(actions);
+        if (!historyCard) {
+            HBox actions = new HBox(15);
+            actions.setAlignment(Pos.CENTER_LEFT);
+            Button startButton = new Button("START PREPARING");
+            startButton.setDisable(order.status != OrderStatus.PENDING);
+            startButton.setOnAction(event -> updateStatus(order, OrderStatus.PREPARING));
+            Button readyButton = new Button("MARK READY");
+            readyButton.setDisable(order.status != OrderStatus.PREPARING);
+            readyButton.setOnAction(event -> updateStatus(order, OrderStatus.READY));
+            styleButton(startButton, false);
+            styleButton(readyButton, false);
+            actions.getChildren().addAll(startButton, readyButton);
+            ticket.getChildren().add(actions);
+        }
         stationOrders.getChildren().add(ticket);
     }
 
     private void updateStatus(KitchenOrder order, OrderStatus status) {
         synchronized (KitchenGUI.class) {
             order.status = status;
+            if (status == OrderStatus.READY) {
+                pendingOrders.remove(order);
+                completedOrders.add(order);
+            }
         }
         refreshOrders();
     }
