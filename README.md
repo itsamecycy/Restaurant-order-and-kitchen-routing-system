@@ -2,6 +2,8 @@
 
 A Java-based restaurant management system designed to streamline the processing, routing, and monitoring of customer orders within a restaurant's kitchen operations.
 
+📖 [User Manual](User_Manual.md)
+
 ## 📌 Project Overview
 
 The **Restaurant Order and Kitchen Routing Management System** is a proposed software solution that helps restaurants manage customer orders and efficiently route individual order items to their appropriate kitchen stations.
@@ -555,7 +557,7 @@ Developed by:
 * [Mariano, Sarah]
 * [Reyes, Angela]
 * [Viñas, Tisha Lyan]
-* []
+* [Tud, Jhon Paul]
 
 **Course:** [BS Computer Engr.]
 **Year Level:** 3rd Year
