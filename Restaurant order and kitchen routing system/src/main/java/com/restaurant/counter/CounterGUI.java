@@ -20,6 +20,7 @@ import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
@@ -78,10 +79,16 @@ public class CounterGUI {
         backButton.setOnAction(event -> onBackToMainMenu.run());
         styleButton(backButton);
 
+        Button orderManagementButton = new Button("Order Management");
+        orderManagementButton.setOnAction(
+            event -> stage.setScene(createOrderManagementScene(stage)));
+        styleButton(orderManagementButton);
+
         VBox titleBlock = new VBox(3, title, subtitle);
         Region headerSpacer = new Region();
         HBox.setHgrow(headerSpacer, Priority.ALWAYS);
-        HBox header = new HBox(15, titleBlock, headerSpacer, staff, backButton);
+        HBox header = new HBox(15, titleBlock, headerSpacer, staff,
+            orderManagementButton, backButton);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(20, 35, 15, 35));
 
@@ -159,6 +166,69 @@ public class CounterGUI {
         return scene;
     }
 
+    private Scene createOrderManagementScene(Stage stage) {
+        Label title = new Label("ORDER MANAGEMENT");
+        title.setStyle(font(BOLD_FONT, 26));
+
+        Label subtitle = new Label("Status, cancellation, and refund tools");
+        subtitle.setStyle(font(REGULAR_FONT, 16));
+
+        Button backButton = new Button("Back to Counter");
+        backButton.setOnAction(event -> stage.setScene(createScene(stage)));
+        styleButton(backButton);
+
+        HBox header = new HBox(15, title, backButton);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setPadding(new Insets(20, 30, 10, 30));
+        HBox.setHgrow(title, Priority.ALWAYS);
+
+        Label statusSectionTitle = new Label("View Order Status");
+        statusSectionTitle.setStyle(font(BOLD_FONT, 20));
+        Button statusButton = new Button("Check Order Status");
+        statusButton.setOnAction(event -> showOrderStatus(stage));
+        styleButton(statusButton);
+        VBox statusSection = createManagementSection(statusSectionTitle, statusButton);
+
+        Label cancellationSectionTitle = new Label("Cancel Order");
+        cancellationSectionTitle.setStyle(font(BOLD_FONT, 20));
+        Button cancellationButton = new Button("Cancel an Order");
+        cancellationButton.setOnAction(event -> cancelOrder(stage));
+        styleButton(cancellationButton);
+        VBox cancellationSection = createManagementSection(
+                cancellationSectionTitle, cancellationButton);
+
+        Label refundSectionTitle = new Label("Refund");
+        refundSectionTitle.setStyle(font(BOLD_FONT, 20));
+        Button refundButton = new Button("Refund a Completed Order");
+        refundButton.setOnAction(event -> refundOrder(stage));
+        styleButton(refundButton);
+        VBox refundSection = createManagementSection(refundSectionTitle, refundButton);
+
+        VBox content = new VBox(20, subtitle, statusSection,
+                cancellationSection, refundSection);
+        content.setPadding(new Insets(10, 30, 30, 30));
+        content.setAlignment(Pos.TOP_CENTER);
+        VBox.setVgrow(statusSection, Priority.ALWAYS);
+        VBox.setVgrow(cancellationSection, Priority.ALWAYS);
+        VBox.setVgrow(refundSection, Priority.ALWAYS);
+
+        BorderPane root = new BorderPane();
+        root.setTop(header);
+        root.setCenter(content);
+        root.setStyle("-fx-font-family: '" + REGULAR_FONT + "';");
+        return new Scene(root, 950, 760);
+    }
+
+    private VBox createManagementSection(Label title, Button actionButton) {
+        actionButton.setMaxWidth(Double.MAX_VALUE);
+        VBox section = new VBox(10, title, actionButton);
+        section.setMaxWidth(560);
+        section.setPadding(new Insets(18));
+        section.setStyle("-fx-border-color: #777; -fx-border-width: 1;"
+                + " -fx-background-color: white;");
+        return section;
+    }
+
     private HBox createMenuItem(String product, double price) {
         Label productLabel = new Label(product);
         productLabel.setStyle(font(REGULAR_FONT, 17));
@@ -217,6 +287,76 @@ public class CounterGUI {
     private static void styleButton(Button button) {
         button.setStyle("-fx-font-family: '" + BOLD_FONT + "';"
                 + " -fx-font-size: 14px;");
+    }
+
+    private void showOrderStatus(Stage owner) {
+        String orderReference = promptForOrderReference(owner, "View Order Status");
+        if (orderReference == null) {
+            return;
+        }
+
+        var order = KitchenGUI.findOrder(orderReference);
+        if (order.isEmpty()) {
+            showOrderMessage(owner, "Order Not Found",
+                    "No order was found for " + orderReference + ".");
+            return;
+        }
+
+        KitchenGUI.OrderSnapshot snapshot = order.get();
+        String refundStatus = snapshot.isRefunded() ? "Refunded" : "Not refunded";
+        showOrderMessage(owner, "Order Status",
+                "Order: " + snapshot.getFormattedOrderNumber() + "\n"
+                + "Type: " + snapshot.getOrderType() + "\n"
+                + "Status: " + snapshot.getStatus() + "\n"
+                + "Payment: " + refundStatus);
+    }
+
+    private void cancelOrder(Stage owner) {
+        String orderReference = promptForOrderReference(owner, "Cancel Order");
+        if (orderReference == null) {
+            return;
+        }
+
+        if (KitchenGUI.cancelOrder(orderReference)) {
+            showOrderMessage(owner, "Order Cancelled",
+                    "Order " + orderReference + " was cancelled.");
+        } else {
+            showOrderMessage(owner, "Cancellation Unavailable",
+                    "Only pending or preparing orders can be cancelled.");
+        }
+    }
+
+    private void refundOrder(Stage owner) {
+        String orderReference = promptForOrderReference(owner, "Refund Order");
+        if (orderReference == null) {
+            return;
+        }
+
+        if (KitchenGUI.refundOrder(orderReference)) {
+            showOrderMessage(owner, "Refund Recorded",
+                    "A refund was recorded for order " + orderReference + ".");
+        } else {
+            showOrderMessage(owner, "Refund Unavailable",
+                    "Only completed, non-refunded orders can be refunded.");
+        }
+    }
+
+    private String promptForOrderReference(Stage owner, String title) {
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.initOwner(owner);
+        dialog.setTitle(title);
+        dialog.setHeaderText("Enter the order number");
+        dialog.setContentText("Order (for example D1001 or T1002):");
+        return dialog.showAndWait().filter(reference -> !reference.isBlank()).orElse(null);
+    }
+
+    private void showOrderMessage(Stage owner, String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.initOwner(owner);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     private static String font(String family, int size) {

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -42,6 +43,86 @@ public class KitchenGUI {
     public static synchronized void submitOrder(
             int orderNumber, OrderType orderType, Map<String, Integer> products) {
         pendingOrders.add(new KitchenOrder(orderNumber, orderType, products));
+    }
+
+    public static synchronized Optional<OrderSnapshot> findOrder(String orderReference) {
+        Integer orderNumber = parseOrderNumber(orderReference);
+        if (orderNumber == null) {
+            return Optional.empty();
+        }
+
+        return allOrders().stream()
+                .filter(order -> order.orderNumber == orderNumber)
+                .map(KitchenOrder::snapshot)
+                .findFirst();
+    }
+
+    public static synchronized boolean cancelOrder(String orderReference) {
+        Optional<KitchenOrder> matchingOrder = findMutableOrder(orderReference);
+        if (matchingOrder.isEmpty()) {
+            return false;
+        }
+
+        KitchenOrder order = matchingOrder.get();
+        if (order.status != OrderStatus.PENDING
+                && order.status != OrderStatus.PREPARING) {
+            return false;
+        }
+
+        order.status = OrderStatus.CANCELLED;
+        pendingOrders.remove(order);
+        completedOrders.add(order);
+        return true;
+    }
+
+    public static synchronized boolean refundOrder(String orderReference) {
+        Optional<KitchenOrder> matchingOrder = findMutableOrder(orderReference);
+        if (matchingOrder.isEmpty()) {
+            return false;
+        }
+
+        KitchenOrder order = matchingOrder.get();
+        if (order.status != OrderStatus.READY || order.refunded) {
+            return false;
+        }
+
+        order.refunded = true;
+        return true;
+    }
+
+    private static Optional<KitchenOrder> findMutableOrder(String orderReference) {
+        Integer orderNumber = parseOrderNumber(orderReference);
+        if (orderNumber == null) {
+            return Optional.empty();
+        }
+
+        return allOrders().stream()
+                .filter(order -> order.orderNumber == orderNumber)
+                .findFirst();
+    }
+
+    private static List<KitchenOrder> allOrders() {
+        List<KitchenOrder> orders = new ArrayList<>(pendingOrders);
+        orders.addAll(completedOrders);
+        return orders;
+    }
+
+    private static Integer parseOrderNumber(String orderReference) {
+        if (orderReference == null) {
+            return null;
+        }
+
+        String reference = orderReference.trim().toUpperCase();
+        if (reference.length() > 1
+                && (reference.charAt(0) == 'D' || reference.charAt(0) == 'T')) {
+            reference = reference.substring(1);
+        }
+
+        try {
+            return Integer.valueOf(reference);
+        } catch (NumberFormatException exception) {
+            return null;
+        }
     }
 
     public Scene createScene() {
@@ -232,6 +313,7 @@ public class KitchenGUI {
         private final OrderType orderType;
         private final Map<String, Integer> products;
         private OrderStatus status = OrderStatus.PENDING;
+        private boolean refunded;
 
         private KitchenOrder(int orderNumber, OrderType orderType,
                 Map<String, Integer> products) {
@@ -243,6 +325,41 @@ public class KitchenGUI {
         private boolean hasProductsFor(KitchenSection section) {
             return products.keySet().stream()
                     .anyMatch(product -> KitchenSection.forProduct(product) == section);
+        }
+
+        private OrderSnapshot snapshot() {
+            return new OrderSnapshot(orderNumber, orderType, status, refunded);
+        }
+    }
+
+    public static final class OrderSnapshot {
+        private final int orderNumber;
+        private final OrderType orderType;
+        private final OrderStatus status;
+        private final boolean refunded;
+
+        private OrderSnapshot(int orderNumber, OrderType orderType,
+                OrderStatus status, boolean refunded) {
+            this.orderNumber = orderNumber;
+            this.orderType = orderType;
+            this.status = status;
+            this.refunded = refunded;
+        }
+
+        public String getFormattedOrderNumber() {
+            return orderType.formatOrderNumber(orderNumber);
+        }
+
+        public String getStatus() {
+            return status.displayName;
+        }
+
+        public String getOrderType() {
+            return orderType.displayName;
+        }
+
+        public boolean isRefunded() {
+            return refunded;
         }
     }
 
@@ -266,7 +383,8 @@ public class KitchenGUI {
     private enum OrderStatus {
         PENDING("PENDING"),
         PREPARING("PREPARING"),
-        READY("READY");
+        READY("READY"),
+        CANCELLED("CANCELLED");
 
         private final String displayName;
 

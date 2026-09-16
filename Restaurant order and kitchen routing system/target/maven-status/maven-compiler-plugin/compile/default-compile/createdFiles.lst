@@ -6,5 +6,6 @@ com\restaurant\kitchen\KitchenGUI$OrderStatus.class
 com\restaurant\repository\CounterRepository.class
 com\restaurant\database\DatabaseManager.class
 com\restaurant\counter\CounterGUI.class
+com\restaurant\kitchen\KitchenGUI$OrderSnapshot.class
 com\restaurant\kitchen\KitchenGUI$KitchenSection.class
 com\restaurant\Main.class
