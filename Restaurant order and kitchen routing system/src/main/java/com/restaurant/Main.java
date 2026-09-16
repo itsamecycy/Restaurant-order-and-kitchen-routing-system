@@ -1,6 +1,7 @@
 package com.restaurant;
 
 import com.restaurant.counter.CounterGUI;
+import com.restaurant.counter.CounterLoginGUI;
 import com.restaurant.kitchen.KitchenGUI;
 
 import javafx.application.Application;
@@ -21,6 +22,7 @@ public class Main extends Application {
         "/fonts/StardosStencil-Regular.ttf", "Stardos Stencil");
     private static final String BOLD_FONT = loadFont(
         "/fonts/StardosStencil-Bold.ttf", REGULAR_FONT);
+    private boolean counterAuthenticated;
 
     @Override
     public void start(Stage stage) {
@@ -45,9 +47,18 @@ public class Main extends Application {
         counterButton.setPrefSize(240, 55);
         styleButton(counterButton);
         counterButton.setOnAction(event -> {
-            CounterGUI counterGUI = new CounterGUI(
-                    () -> stage.setScene(createMainMenu(stage)));
-            stage.setScene(counterGUI.createScene(stage));
+            if (counterAuthenticated) {
+                openCounter(stage);
+                return;
+            }
+
+            CounterLoginGUI loginGUI = new CounterLoginGUI(
+                () -> stage.setScene(createMainMenu(stage)),
+                () -> {
+                    counterAuthenticated = true;
+                    openCounter(stage);
+                });
+            stage.setScene(loginGUI.createScene(stage));
         });
 
         Button kitchenButton = new Button("Kitchen");
@@ -76,6 +87,12 @@ public class Main extends Application {
         kitchenButton.prefWidthProperty().bind(menu.widthProperty().multiply(0.65));
         adminButton.prefWidthProperty().bind(menu.widthProperty().multiply(0.65));
         return scene;
+    }
+
+    private void openCounter(Stage stage) {
+        CounterGUI counterGUI = new CounterGUI(
+                () -> stage.setScene(createMainMenu(stage)));
+        stage.setScene(counterGUI.createScene(stage));
     }
 
     private void showUnavailableMessage(String workspace, String message) {

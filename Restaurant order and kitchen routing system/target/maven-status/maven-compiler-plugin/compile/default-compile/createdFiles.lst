@@ -1,7 +1,10 @@
-com\restaurant\counter\CounterGUI.class
 com\restaurant\kitchen\KitchenGUI.class
 com\restaurant\kitchen\KitchenGUI$KitchenOrder.class
+com\restaurant\counter\CounterLoginGUI.class
 com\restaurant\kitchen\KitchenGUI$OrderType.class
 com\restaurant\kitchen\KitchenGUI$OrderStatus.class
+com\restaurant\repository\CounterRepository.class
+com\restaurant\database\DatabaseManager.class
+com\restaurant\counter\CounterGUI.class
 com\restaurant\kitchen\KitchenGUI$KitchenSection.class
 com\restaurant\Main.class
