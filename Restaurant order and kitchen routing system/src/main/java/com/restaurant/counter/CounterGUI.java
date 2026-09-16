@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.restaurant.kitchen.KitchenGUI;
+import com.restaurant.kitchen.KitchenGUI.OrderType;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -15,9 +16,11 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -43,6 +46,7 @@ public class CounterGUI {
     private final ListView<String> orderList = new ListView<>();
     private final Label totalLabel = new Label("Total: $0.00");
     private final Runnable onBackToMainMenu;
+    private OrderType selectedOrderType = OrderType.DINE_IN;
 
     public CounterGUI() {
         this(() -> {
@@ -117,9 +121,21 @@ public class CounterGUI {
         createOrderButton.setOnAction(event -> createReceipt(stage));
         styleButton(createOrderButton);
 
+        Label orderTypeLabel = new Label("Order Type");
+        orderTypeLabel.setStyle(font(BOLD_FONT, 16));
+        ToggleGroup orderTypeGroup = new ToggleGroup();
+        RadioButton dineInButton = new RadioButton("Dine In");
+        dineInButton.setToggleGroup(orderTypeGroup);
+        dineInButton.setSelected(true);
+        dineInButton.setOnAction(event -> selectedOrderType = OrderType.DINE_IN);
+        RadioButton takeoutButton = new RadioButton("Takeout");
+        takeoutButton.setToggleGroup(orderTypeGroup);
+        takeoutButton.setOnAction(event -> selectedOrderType = OrderType.TAKEOUT);
+        HBox orderTypeOptions = new HBox(18, dineInButton, takeoutButton);
+
         VBox orderActions = new VBox(12, removeButton, clearButton, createOrderButton);
         VBox orderSection = new VBox(14, new Label("Current Order"), orderList,
-            totalLabel, orderActions);
+            totalLabel, orderTypeLabel, orderTypeOptions, orderActions);
         ((Label) orderSection.getChildren().get(0)).setStyle(font(BOLD_FONT, 18));
         totalLabel.setStyle(font(BOLD_FONT, 16));
         orderSection.setPadding(new Insets(10, 30, 20, 25));
@@ -224,8 +240,8 @@ public class CounterGUI {
         }
 
         int orderNumber = NEXT_ORDER_NUMBER.getAndIncrement();
-        KitchenGUI.submitOrder(orderNumber, selectedProducts);
-        String receipt = buildReceipt(orderNumber);
+        KitchenGUI.submitOrder(orderNumber, selectedOrderType, selectedProducts);
+        String receipt = buildReceipt(orderNumber, selectedOrderType);
         TextArea receiptText = new TextArea(receipt);
         receiptText.setEditable(false);
         receiptText.setPrefRowCount(16);
@@ -233,18 +249,19 @@ public class CounterGUI {
 
         Alert receiptDialog = new Alert(Alert.AlertType.INFORMATION);
         receiptDialog.initOwner(owner);
-        receiptDialog.setTitle("Order Receipt #" + orderNumber);
-        receiptDialog.setHeaderText("Order #" + orderNumber
+        receiptDialog.setTitle("Order Receipt " + selectedOrderType.formatOrderNumber(orderNumber));
+        receiptDialog.setHeaderText("Order " + selectedOrderType.formatOrderNumber(orderNumber)
             + " created successfully");
         receiptDialog.getDialogPane().setContent(receiptText);
         receiptDialog.showAndWait();
         clearOrder();
     }
 
-    private String buildReceipt(int orderNumber) {
+    private String buildReceipt(int orderNumber, OrderType orderType) {
         StringBuilder receipt = new StringBuilder();
         receipt.append("RESTAURANT ORDER RECEIPT\n");
-        receipt.append("ORDER NUMBER: #").append(orderNumber).append("\n");
+        receipt.append("ORDER NUMBER: ").append(orderType.formatOrderNumber(orderNumber)).append("\n");
+        receipt.append("ORDER TYPE: ").append(orderType.displayName).append("\n");
         receipt.append("Date: ").append(LocalDateTime.now().format(RECEIPT_TIME_FORMAT))
                 .append("\n");
         receipt.append("------------------------------------------\n");

@@ -40,8 +40,8 @@ public class KitchenGUI {
     }
 
     public static synchronized void submitOrder(
-            int orderNumber, Map<String, Integer> products) {
-        pendingOrders.add(new KitchenOrder(orderNumber, products));
+            int orderNumber, OrderType orderType, Map<String, Integer> products) {
+        pendingOrders.add(new KitchenOrder(orderNumber, orderType, products));
     }
 
     public Scene createScene() {
@@ -158,7 +158,8 @@ public class KitchenGUI {
                 + " -fx-background-color: white;");
 
         HBox orderHeading = new HBox();
-        Label orderNumber = new Label("Order #" + order.orderNumber);
+        Label orderNumber = new Label("Order #"
+            + order.orderType.formatOrderNumber(order.orderNumber));
         orderNumber.setStyle(font(BOLD_FONT, 16));
         Label status = new Label("Status: " + order.status.displayName);
         status.setStyle(font(REGULAR_FONT, 15));
@@ -228,17 +229,37 @@ public class KitchenGUI {
 
     private static final class KitchenOrder {
         private final int orderNumber;
+        private final OrderType orderType;
         private final Map<String, Integer> products;
         private OrderStatus status = OrderStatus.PENDING;
 
-        private KitchenOrder(int orderNumber, Map<String, Integer> products) {
+        private KitchenOrder(int orderNumber, OrderType orderType,
+                Map<String, Integer> products) {
             this.orderNumber = orderNumber;
+            this.orderType = orderType;
             this.products = new LinkedHashMap<>(products);
         }
 
         private boolean hasProductsFor(KitchenSection section) {
             return products.keySet().stream()
                     .anyMatch(product -> KitchenSection.forProduct(product) == section);
+        }
+    }
+
+    public enum OrderType {
+        DINE_IN("DINE IN", 'D'),
+        TAKEOUT("TAKEOUT", 'T');
+
+        public final String displayName;
+        private final char prefix;
+
+        OrderType(String displayName, char prefix) {
+            this.displayName = displayName;
+            this.prefix = prefix;
+        }
+
+        public String formatOrderNumber(int orderNumber) {
+            return prefix + String.valueOf(orderNumber);
         }
     }
 
