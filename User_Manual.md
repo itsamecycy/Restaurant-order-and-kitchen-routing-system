@@ -15,6 +15,7 @@ The system is being developed using:
 * Maven
 * MySQL
 * JDBC
+* Oracle Cloud (hosting)
 
 The application is intended for restaurant staff such as cashiers, kitchen personnel, and administrators.
 
